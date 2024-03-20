@@ -1,3 +1,4 @@
+import json
 from ytmusicapi import YTMusic
 from spotify_functions import *
 from local_web_server import *
@@ -9,46 +10,11 @@ import sys
 import webbrowser
 
 
-spotify_url= 'https://accounts.spotify.com'
-auth_url = '/authorize'
-access_token_url = '/api/token'
-
-# print('http://localhost:8888/callback')
+spotify_token_info : SpotifyAccessTokenInfo = get_spotify_auth()
 
 
-code_verifier = Spotify.generate_random_string(64)
-hashed = Spotify.sha256(code_verifier)
-codeChallenge = Spotify.base64encode(hashed)
 
 
-clientId = '076017c2352240a198382b8b4cec592f'
-redirectUri = 'http://localhost:8888/callback'
-
-scope = 'user-read-private user-read-email'
-
-# Genera la URL de autorización de Spotify
-
-params = {
-    'response_type': 'code',
-    'client_id': clientId,
-    'scope': scope,
-    'code_challenge_method': 'S256',
-    'code_challenge': codeChallenge,
-    'redirect_uri': redirectUri
-}
-auth_url_with_params = urljoin(spotify_url + auth_url, '?' + urlencode(params))
-
-# Almacena el code_verifier en el almacenamiento local (si es necesario)
-# Nota: en Python no hay un equivalente directo de window.localStorage, 
-# así que aquí solo se está simulando el almacenamiento temporal
-# os.environ['code_verifier'] = code_verifier
-
-# Redirige al usuario a la URL de autorización de Spotify
-webbrowser.open(auth_url_with_params)
-
-authorization_code, state = StartWebServerUserAuth(8888)
-
-spotify_access_token = Spotify.get_access_token_info(spotify_url + access_token_url, clientId, authorization_code, redirectUri, code_verifier)
 
 
 sys.exit()
