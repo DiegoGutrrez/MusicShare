@@ -13,7 +13,22 @@ import webbrowser
 spotify_token_info : SpotifyAccessTokenInfo = get_spotify_auth()
 
 
+user_id = Spotify.get_user_id(spotify_token_info.access_token)
 
+
+res_bool, playlist_id , error_msg = Spotify.create_playlist(user_id,spotify_token_info.access_token,'Test pl python')
+
+if(res_bool == False):
+    print(error_msg)
+    sys.exit()
+
+
+
+track_id = Spotify.search_track(spotify_token_info.access_token, 'macarena', SearchType.track, None, 4)
+
+
+
+#response = requests.get('https://api.spotify.com/v1/me/playlists', headers=headers)
 
 
 

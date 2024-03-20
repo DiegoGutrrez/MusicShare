@@ -11,6 +11,7 @@ import requests
 from local_web_server import StartWebServerUserAuth
 from model.config import *
 from model.SpotifyAccessTokenInfo import SpotifyAccessTokenInfo
+from spotify.spotify_generic import SearchType
 
 
 # class Spotify:
@@ -72,14 +73,14 @@ def get_spotify_token_info():
     codeChallenge = base64encode(hashed)
 
 
-    scope = 'user-read-private user-read-email'
+    
 
     # Genera la URL de autorización de Spotify
 
     params = {
         'response_type': 'code',
         'client_id': CLIENT_ID,
-        'scope': scope,
+        'scope': SPOTIFY_SCOPE,
         'code_challenge_method': 'S256',
         'code_challenge': codeChallenge,
         'redirect_uri': REDIRECT_URI
@@ -134,3 +135,87 @@ def get_spotify_auth() -> SpotifyAccessTokenInfo:
             f.write(spotify_access_token.to_json())
 
     return spotify_access_token
+
+class Spotify:
+    def get_user_id(spotify_token) -> string:
+
+        # Encabezado de autorización con el token de acceso
+        headers = {
+            "Authorization": "Bearer "+ spotify_token  # Reemplaza 'tu_access_token' con tu token de acceso real
+        }
+
+        # Realizar la solicitud GET a la API de Spotify
+        response = requests.get('https://api.spotify.com/v1/me', headers=headers)
+
+        response_json = response.json()
+
+        return response_json['uri'].split(':')[2]
+    
+
+
+    def create_playlist( user_id, token , playlist_name, description = '', public = False, collaborative = False):
+
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "name": playlist_name,
+            "description": description,
+            "public": public,
+            "collaborative": collaborative
+        }
+
+        # Realizar la solicitud POST a la API de Spotify
+        response = requests.post(f"https://api.spotify.com/v1/users/{user_id}/playlists", headers=headers, json=data)
+
+        if response.status_code == 201:
+            response_json = response.json()
+            return True,response_json['id'],None
+        
+
+        error_text = ''
+
+        if response.status_code == 401:
+            error_text = 'Error -> Bad token'
+        elif response.status_code == 403:
+            error_text = 'Error -> Bad OAuth request'
+        elif response.status_code == 429:
+            error_text = 'Error -> The app has exceeded its rate limits'
+
+        return False, None, error_text
+    
+
+
+    def search_track(token, query : string, type : SearchType, market: string = None, limit = 10, offset = 0):
+
+        headers = {
+            "Authorization": "Bearer "+ token
+        }
+
+        params = '?q=' + query.replace(" ", "+") 
+
+        params += '&type=' + type.value
+
+        if(market):
+            params += '&market=' + market
+
+        if(limit):
+            params += '&limit=' + str(limit)
+
+        if(offset):
+            params += '&offset=' + str(offset)
+
+        print('Search track: https://api.spotify.com/v1/search'+params)
+        response = requests.get('https://api.spotify.com/v1/search' + params, headers=headers)
+
+        response_json = response.json()
+
+        track_id = response_json['tracks']['items'][0]['uri']
+
+        return track_id 
+
+
+
+    # def add_track_to_playlist(playlist_id, track_id)
