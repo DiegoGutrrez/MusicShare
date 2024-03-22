@@ -4,6 +4,7 @@ import secrets
 import string
 import hashlib
 import base64
+import sys
 from urllib.parse import urlencode, urljoin
 import webbrowser
 import requests
@@ -149,7 +150,7 @@ class Spotify:
 
         response_json = response.json()
 
-        return response_json['uri'].split(':')[2]
+        return response_json['uri'].split(':')[2], response_json['country']
     
 
 
@@ -218,4 +219,96 @@ class Spotify:
 
 
 
-    # def add_track_to_playlist(playlist_id, track_id)
+    def add_track_to_playlist(token, playlist_id, track_uri,position = None):
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        # if(position):
+        #     data = {
+        #         "uris": [track_uri],
+        #         "position": 0
+        #     }
+        # else:
+        #     data = {
+        #         "uris": [track_uri]
+        #     }
+
+        data = {
+            "uris": track_uri,
+            "position": 0
+        }
+        
+        
+
+        # Realizar la solicitud POST a la API de Spotify
+        response = requests.post(f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks', headers=headers, json=data)
+
+        if (response.status_code == 201 or response.status_code == 200):
+            response_json = response.json()
+            return True
+        
+        return False
+    
+
+    def add_tracks_to_playlist(token, playlist_id : str, track_uris: list[str],position = None):
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
+        # if(position):
+        data = {
+            "uris": track_uris,
+            "position": 0
+        }
+
+        # Realizar la solicitud POST a la API de Spotify
+        response = requests.post(f'https://api.spotify.com/v1/playlists/{playlist_id}/tracks', headers=headers, json=data)
+
+        if (response.status_code == 201 or response.status_code == 200):
+            response_json = response.json()
+            return True
+        
+        return False
+
+
+
+
+    def create_playlist_and_fill(playlist_name, tracks):
+
+        spotify_token_info : SpotifyAccessTokenInfo = get_spotify_auth()
+
+
+        user_id, user_country = Spotify.get_user_id(spotify_token_info.access_token)
+
+
+        res_bool, playlist_id , error_msg = Spotify.create_playlist(user_id,spotify_token_info.access_token, playlist_name)
+
+        if(res_bool == False):
+            print(error_msg)
+            sys.exit()
+
+
+        track_uris : list[str] = []
+
+        for track in tracks:
+
+            track_uri = Spotify.search_track(spotify_token_info.access_token, track, SearchType.track, user_country, 4)
+
+            track_uris.append(track_uri)
+
+
+        # track_uris = [
+        #             "spotify:track:2DNyZP4Py6f4zMASLBnIu6",
+        #             "spotify:track:4waqcUQWdj0yH26STWl2Rq",
+        #             "spotify:track:1YtZ6sHC4TalQbK4c37bqJ",
+        #             "spotify:track:1I3O8YESvj6G6TqHaJTvEU",
+        #             "spotify:track:0Zbm5CKG9HHT9bwgvFc0qI",
+        #             "spotify:track:6GvgQAIyf4F3IirbbctB1x",
+        #             "spotify:track:6ZzMVEVTBhekYNKTGxCoUt",
+        #             "spotify:track:1j8z4TTjJ1YOdoFEDwJTQa"]
+
+
+        Spotify.add_tracks_to_playlist(spotify_token_info.access_token,playlist_id,track_uris)
