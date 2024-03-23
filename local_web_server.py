@@ -17,8 +17,8 @@ class RequestHandlerUserAuth(BaseHTTPRequestHandler):
         state = query_parameters.get('state', [None])[0]
 
         # Imprimir los valores de los parámetros de la consulta
-        print("Authorization Code:", authorization_code)
-        print("State:", state)
+        # print("Authorization Code:", authorization_code)
+        # print("State:", state)
 
         # Responder con un mensaje de éxito
         self.send_response(200)
@@ -41,7 +41,7 @@ def StartWebServerUserAuth(PORT):
     authorization_code = None
     state = None
     server = HTTPServer(('localhost', PORT), RequestHandlerUserAuth)
-    print('Servidor web escuchando en el puerto', PORT)
+    print('\nEsperando respuesta de Spotify...\n')
 
 
     server.handle_request()

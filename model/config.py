@@ -4,4 +4,7 @@ SPOTIFY_SCOPE = 'user-read-private user-read-email playlist-read-private playlis
 # CLIENT_SECRET = "tu_client_secret"
 REDIRECT_URI = "http://localhost:8888/callback"
 
-SPOTIFY_TOKEN_PATH = "auth/spotify_outh.json"
+SPOTIFY_TOKEN_PATH_2 = "auth/spotify_outh.json"
+SPOTIFY_TOKEN_PATH = "spotify_oauth.json"
+
+YOUTUBE_TOKEN_PATH = "youtube_oauth.json"

@@ -11,7 +11,7 @@ import requests
 # import model.config
 from local_web_server import StartWebServerUserAuth
 from model.config import *
-from model.SpotifyAccessTokenInfo import SpotifyAccessTokenInfo
+from model.SpotifyTokenInfo import SpotifyTokenInfo
 from spotify.spotify_generic import SearchType
 
 
@@ -50,7 +50,7 @@ def get_access_token_info(url,clientId,code,redirectUri,code_verifier):
     response = requests.post(url, data=payload, headers=headers)
     response_data = response.json()
 
-    access_token_info = SpotifyAccessTokenInfo(
+    access_token_info = SpotifyTokenInfo(
         access_token=response_data['access_token'],
         token_type=response_data['token_type'],
         scope=response_data['scope'],
@@ -102,13 +102,13 @@ def get_spotify_token_info():
 
 
 
-def get_spotify_auth() -> SpotifyAccessTokenInfo:
 
-    if os.path.exists(SPOTIFY_TOKEN_PATH):
-        print(f"El archivo '{SPOTIFY_TOKEN_PATH}' existe.")
+class Spotify:
+
+    def read_token_file(path : str) -> SpotifyTokenInfo:
 
         # Leer el contenido del archivo
-        with open(SPOTIFY_TOKEN_PATH, 'r') as f:
+        with open(path, 'r') as f:
             json_data = f.read()
 
         # Cargar el JSON
@@ -118,8 +118,8 @@ def get_spotify_auth() -> SpotifyAccessTokenInfo:
             print("Error al decodificar JSON:", e)
             exit()
 
-        # Crear una instancia de SpotifyAccessTokenInfo con los datos cargados desde el JSON
-        spotify_access_token = SpotifyAccessTokenInfo(
+        # Crear una instancia de SpotifyTokenInfo con los datos cargados desde el JSON
+        spotify_access_token = SpotifyTokenInfo(
             access_token=data_dict['access_token'],
             token_type=data_dict['token_type'],
             scope=data_dict['scope'],
@@ -127,17 +127,53 @@ def get_spotify_auth() -> SpotifyAccessTokenInfo:
             refresh_token=data_dict['refresh_token']
         )
 
-    else:
-        print(f"El archivo '{SPOTIFY_TOKEN_PATH}' no existe.")
-        spotify_access_token: SpotifyAccessTokenInfo = get_spotify_token_info()
+        return spotify_access_token
 
-        # Abrir un archivo en modo escritura ('w')
-        with open(SPOTIFY_TOKEN_PATH, 'w') as f:
-            f.write(spotify_access_token.to_json())
 
-    return spotify_access_token
 
-class Spotify:
+    def check_for_spotify_token_file():
+
+        if os.path.exists(SPOTIFY_TOKEN_PATH):
+            print(f"El archivo '{SPOTIFY_TOKEN_PATH}' existe.")
+
+            return 0
+        else:
+            print(f"El archivo '{SPOTIFY_TOKEN_PATH}' no existe. Buscando en '{SPOTIFY_TOKEN_PATH_2}'")
+            
+            if os.path.exists(SPOTIFY_TOKEN_PATH_2):
+                print(f"El archivo '{SPOTIFY_TOKEN_PATH_2}' existe.")
+
+                return 1
+            else:
+                print(f"El archivo '{SPOTIFY_TOKEN_PATH_2}' no existe.")
+
+                return -1
+
+
+    def get_spotify_auth() -> SpotifyTokenInfo:
+
+        res = Spotify.check_for_spotify_token_file()
+        if(res == 0):
+            return Spotify.read_token_file(SPOTIFY_TOKEN_PATH)
+        
+        elif(res == 1):
+            return Spotify.read_token_file(SPOTIFY_TOKEN_PATH_2)
+        
+        else:
+            print('El archivo con el token de Spotify ha sido eliminado, generando de nuevo...\n')
+
+            spotify_access_token: SpotifyTokenInfo = get_spotify_token_info()
+
+            # Abrir un archivo en modo escritura ('w')
+            with open(SPOTIFY_TOKEN_PATH, 'w') as f:
+                f.write(spotify_access_token.to_json())
+
+            return spotify_access_token
+            
+
+
+
+
     def get_user_id(spotify_token) -> string:
 
         # Encabezado de autorización con el token de acceso
@@ -276,15 +312,12 @@ class Spotify:
 
 
 
-    def create_playlist_and_fill(playlist_name, tracks):
+    def create_playlist_and_fill(token,playlist_name, tracks):
 
-        spotify_token_info : SpotifyAccessTokenInfo = get_spotify_auth()
-
-
-        user_id, user_country = Spotify.get_user_id(spotify_token_info.access_token)
+        user_id, user_country = Spotify.get_user_id(token)
 
 
-        res_bool, playlist_id , error_msg = Spotify.create_playlist(user_id,spotify_token_info.access_token, playlist_name)
+        res_bool, playlist_id , error_msg = Spotify.create_playlist(user_id,token, playlist_name)
 
         if(res_bool == False):
             print(error_msg)
@@ -295,7 +328,7 @@ class Spotify:
 
         for track in tracks:
 
-            track_uri = Spotify.search_track(spotify_token_info.access_token, track, SearchType.track, user_country, 4)
+            track_uri = Spotify.search_track(token, track, SearchType.track, user_country, 4)
 
             track_uris.append(track_uri)
 
@@ -311,4 +344,4 @@ class Spotify:
         #             "spotify:track:1j8z4TTjJ1YOdoFEDwJTQa"]
 
 
-        Spotify.add_tracks_to_playlist(spotify_token_info.access_token,playlist_id,track_uris)
+        Spotify.add_tracks_to_playlist(token,playlist_id,track_uris)

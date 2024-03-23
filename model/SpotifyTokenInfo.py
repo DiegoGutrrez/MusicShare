@@ -3,7 +3,7 @@
 import time
 
 
-class SpotifyAccessTokenInfo:
+class SpotifyTokenInfo:
     def __init__(self, access_token, token_type, scope, expires_in, refresh_token):
         self.access_token = access_token
         self.token_type = token_type
