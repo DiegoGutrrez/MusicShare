@@ -5,6 +5,7 @@ from youtube.youtube_functions import Youtube
 # try:
 import json
 # from ytmusicapi_local.main_ytmusicapi import obtain_ytmusic_access
+from ytmusicapi_local.main_ytmusicapi import obtain_ytmusic_access
 from ytmusicapi_local.ytmusic import YTMusic
 from spotify.spotify_functions import *
 from local_web_server import *
@@ -14,10 +15,68 @@ from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 import sys
 import webbrowser
 
-# obtain_ytmusic_access()
+spotify_token_info : SpotifyTokenInfo
+ytmusic: YTMusic = None
+
+def playlist_ytmusic_to_spotify():
+
+    global ytmusic
+
+    retry = True
+
+    ytmusic_playlist_name = ''
+    spotify_playlist_name = ''
+
+
+    while retry:
+        
+        while ytmusic_playlist_name == '':
+            ytmusic_playlist_name = input('\nIntroduce el nombre de la playlist de Youtube Music: ')
+
+        while spotify_playlist_name == '':
+            spotify_playlist_name = input('\nIntroduce el nombre de la playlist a crear en Spotify: ')
+
+        tracks = []
+        res_bool, tracks = Youtube.get_tracks_from_playlist(ytmusic,ytmusic_playlist_name)
+
+        if res_bool == False:
+            continue
+
+        if(len(tracks) > 100):
+            tracks_sublists = []
+
+            for i in range(0, len(tracks), 100):
+                tracks_sublist = tracks[i:i+100]
+                tracks_sublists.append(tracks_sublist)
+
+
+            playlist_id = Spotify.create_playlist_and_fill(spotify_token_info.access_token, spotify_playlist_name, tracks_sublists[0])
+            
+
+            user_id, user_country = Spotify.get_user_id(spotify_token_info.access_token)
+
+            for num in range(1, len(tracks_sublists)):
+                track_uris : list[str] = []
+
+                for track in tracks_sublists[num]:
+                    track_uri = Spotify.search_track(spotify_token_info.access_token, track, SearchType.track, user_country, 4)
+                    if(track_uri != None):
+                        track_uris.append(track_uri)
+
+                Spotify.add_tracks_to_playlist(spotify_token_info.access_token,playlist_id,track_uris,None)
+                
+        else:
+            Spotify.create_playlist_and_fill(spotify_token_info.access_token, spotify_playlist_name, tracks)
+
+        
+        retry = False
+    return
+
+
+
+# 
 # sys.exit()
 
-spotify_token_info : SpotifyTokenInfo
 
 
 print('''   
@@ -41,6 +100,8 @@ spotify_token_info = Spotify.get_spotify_auth()
 
 
 if(Youtube.check_for_youtube_token_file() == -1):
+    obtain_ytmusic_access()
+else:
     ytmusic = YTMusic(YOUTUBE_TOKEN_PATH)
 
 
@@ -50,7 +111,7 @@ read = input('\nSelecciones una opción (escriba el número y pulse ENTER)\n\n\t
 
 
 if read.strip() == "1":
-     sys.exit()
+    playlist_ytmusic_to_spotify()    
 elif read.strip() == "2":
     print()
 else:
@@ -71,39 +132,13 @@ tracks = [
 ]
 
 
-Spotify.create_playlist_and_fill('Prueba Óscar UwU',tracks)
+
 
 print("EY2")
 input()
 
 # Obtiene todas las playlists del usuario autenticado
-playlists = ytmusic.get_library_playlists()
 
-# Busca la playlist con el nombre 'hola'
-playlist_id = None
-for playlist in playlists:
-    if playlist['title'] == 'Coche':
-        playlist_id = playlist['playlistId']
-        break
-
-
-
-# Verifica si se encontró la playlist
-if playlist_id:
-    # Obtiene las canciones de la playlist
-    playlist_info = ytmusic.get_playlist(playlist_id, limit=100)  # Se puede ajustar el límite según sea necesario
-    songs = playlist_info['tracks']
-    
-
-    retrieved_songs = []
-
-    # Imprime la información de las canciones
-    for song in songs:
-        retrieved_songs.append(song['title'] + ' - ' + song['artists'][0]['name'])
-        print(song['title'], '-', song['artists'][0]['name'])  # Imprime el título y el nombre del artista de cada canción
-    print()
-else:
-    print("No se encontró la playlist 'Coche'")
 
 tracks = retrieved_songs
 

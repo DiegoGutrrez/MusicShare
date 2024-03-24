@@ -249,9 +249,14 @@ class Spotify:
 
         response_json = response.json()
 
-        track_id = response_json['tracks']['items'][0]['uri']
+        if(response.status_code == 200 or response.status_code == 201):
+            
+            track_id = response_json['tracks']['items'][0]['uri']
 
-        return track_id 
+            return track_id 
+        
+        else:
+            return None
 
 
 
@@ -312,7 +317,7 @@ class Spotify:
 
 
 
-    def create_playlist_and_fill(token,playlist_name, tracks):
+    def create_playlist_and_fill(token,playlist_name, tracks) -> str:
 
         user_id, user_country = Spotify.get_user_id(token)
 
@@ -329,8 +334,8 @@ class Spotify:
         for track in tracks:
 
             track_uri = Spotify.search_track(token, track, SearchType.track, user_country, 4)
-
-            track_uris.append(track_uri)
+            if(track_uri != None):
+                track_uris.append(track_uri)
 
 
         # track_uris = [
@@ -345,3 +350,5 @@ class Spotify:
 
 
         Spotify.add_tracks_to_playlist(token,playlist_id,track_uris)
+
+        return playlist_id
