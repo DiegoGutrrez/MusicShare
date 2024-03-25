@@ -21,6 +21,7 @@ ytmusic: YTMusic = None
 def playlist_ytmusic_to_spotify():
 
     global ytmusic
+    global spotify_token_info
 
     retry = True
 
@@ -36,7 +37,11 @@ def playlist_ytmusic_to_spotify():
         while spotify_playlist_name == '':
             spotify_playlist_name = input('\nIntroduce el nombre de la playlist a crear en Spotify: ')
 
+        print()
+
         tracks = []
+        
+        print('Obteniendo canciones de la lista...\n')
         res_bool, tracks = Youtube.get_tracks_from_playlist(ytmusic,ytmusic_playlist_name)
 
         if res_bool == False:
@@ -50,23 +55,23 @@ def playlist_ytmusic_to_spotify():
                 tracks_sublists.append(tracks_sublist)
 
 
-            playlist_id = Spotify.create_playlist_and_fill(spotify_token_info.access_token, spotify_playlist_name, tracks_sublists[0])
+            playlist_id = Spotify.create_playlist_and_fill(spotify_token_info, spotify_playlist_name, tracks_sublists[0])
             
 
-            user_id, user_country = Spotify.get_user_id(spotify_token_info.access_token)
+            user_id, user_country = Spotify.get_user_id(spotify_token_info)
 
             for num in range(1, len(tracks_sublists)):
                 track_uris : list[str] = []
 
                 for track in tracks_sublists[num]:
-                    track_uri = Spotify.search_track(spotify_token_info.access_token, track, SearchType.track, user_country, 4)
+                    track_uri = Spotify.search_track(spotify_token_info, track, SearchType.track, user_country, 4)
                     if(track_uri != None):
                         track_uris.append(track_uri)
 
-                Spotify.add_tracks_to_playlist(spotify_token_info.access_token,playlist_id,track_uris,None)
-                
+                Spotify.add_tracks_to_playlist(spotify_token_info,playlist_id,track_uris,None)
+
         else:
-            Spotify.create_playlist_and_fill(spotify_token_info.access_token, spotify_playlist_name, tracks)
+            Spotify.create_playlist_and_fill(spotify_token_info, spotify_playlist_name, tracks)
 
         
         retry = False
@@ -74,9 +79,15 @@ def playlist_ytmusic_to_spotify():
 
 
 
-# 
-# sys.exit()
 
+def playlist_spotify_to_ytmusic():
+
+    global ytmusic
+    global spotify_token_info
+
+    Spotify.get_current_user_playlists(spotify_token_info)
+
+    return
 
 
 print('''   
@@ -98,6 +109,7 @@ print()
 
 spotify_token_info = Spotify.get_spotify_auth()
 
+Spotify.check_if_expired_token(spotify_token_info)
 
 if(Youtube.check_for_youtube_token_file() == -1):
     obtain_ytmusic_access()
@@ -113,52 +125,9 @@ read = input('\nSelecciones una opción (escriba el número y pulse ENTER)\n\n\t
 if read.strip() == "1":
     playlist_ytmusic_to_spotify()    
 elif read.strip() == "2":
-    print()
+    playlist_spotify_to_ytmusic()
 else:
     print()
-
-
-
-
-tracks = [
-    "La Playa - La Oreja de Van Gogh",
-    "Rosas - La Oreja de Van Gogh",
-    "Muñeca de Trapo - La Oreja de Van Gogh",
-    "Dulce Locura - La Oreja de Van Gogh",
-    "Decode (Twilight Soundtrack Version) - Paramore",
-    "Misery Business - Paramore",
-    "Live Your Life (feat. Rihanna) - T.I.",
-    "Ain't It Fun - Paramore"
-]
-
-
-
-
-print("EY2")
-input()
-
-# Obtiene todas las playlists del usuario autenticado
-
-
-tracks = retrieved_songs
-
-
-
-
-    
-
-
-
-
-
-
-
-
-    #response = requests.get('https://api.spotify.com/v1/me/playlists', headers=headers)
-
-# except Exception as err:
-#     print("Error : ", err)
-#     input()
 
 
 sys.exit()

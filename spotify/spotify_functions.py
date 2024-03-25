@@ -5,6 +5,7 @@ import string
 import hashlib
 import base64
 import sys
+import time
 from urllib.parse import urlencode, urljoin
 import webbrowser
 import requests
@@ -80,7 +81,7 @@ def get_spotify_token_info():
 
     params = {
         'response_type': 'code',
-        'client_id': CLIENT_ID,
+        'client_id': SPOTIFY_CLIENT_ID,
         'scope': SPOTIFY_SCOPE,
         'code_challenge_method': 'S256',
         'code_challenge': codeChallenge,
@@ -98,12 +99,94 @@ def get_spotify_token_info():
 
     authorization_code, state = StartWebServerUserAuth(8888)
 
-    return get_access_token_info(spotify_url + access_token_url, CLIENT_ID, authorization_code, REDIRECT_URI, code_verifier)
+    return get_access_token_info(spotify_url + access_token_url, SPOTIFY_CLIENT_ID, authorization_code, REDIRECT_URI, code_verifier)
 
 
 
 
 class Spotify:
+
+
+    # Manejar el error de token caducado para no tener que reiniciar la app
+    def error_401():
+        input('El token ha caducado, por favor, reinicie la aplicación.')
+        sys.exit()  
+
+    
+    def exceeded_rate_limits():
+        "Función a ejecutar cuando se recibe un error 429"
+
+        print('Se ha llegado al límite de solicitudes de la aplicación.')
+
+    
+    def delete_oauth_file_and_restart():
+        "Función a ejecutar cuando se recibe un error 403"
+
+        try:
+            os.remove(SPOTIFY_TOKEN_PATH)
+        except Exception as e:
+            print()
+
+        input('No ha sido posible obtener el nuevo token para acceder a Spotify, por favor, reinicie la aplicación.')
+
+        sys.exit()  
+
+
+
+    def check_if_expired_token(spotify_token : SpotifyTokenInfo):
+
+        headers = {
+            "Authorization": "Bearer "+ spotify_token.access_token 
+        }
+
+        response = requests.get('https://api.spotify.com/v1/me', headers=headers)
+
+        response_json = response.json()
+
+        if(response.status_code != 200):
+            if(response_json['error']['status'] == 401):
+                print('El token de Spotify ha caducado, obteniendo uno nuevo...')
+                Spotify.refresh_token(spotify_token)
+
+        else:
+            dif = time.time() - spotify_token.time_obtained
+            if(dif > 1800):
+               Spotify.refresh_token(spotify_token) 
+        
+
+
+
+    def refresh_token(spotify_token : SpotifyTokenInfo):
+
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+
+        data = {
+            'grant_type': 'refresh_token',
+            'refresh_token': spotify_token.refresh_token,
+            'client_id': SPOTIFY_CLIENT_ID
+        }
+
+        response = requests.post(f"https://accounts.spotify.com/api/token", headers=headers, data=data)
+
+        if response.status_code == 200:
+            response_data = response.json()
+
+            spotify_token.access_token=response_data['access_token']
+            spotify_token.token_type=response_data['token_type']
+            spotify_token.scope=response_data['scope']
+            spotify_token.expires_in=response_data['expires_in']
+            spotify_token.refresh_token=response_data['refresh_token']
+            spotify_token.time_obtained = time.time()
+
+            with open(SPOTIFY_TOKEN_PATH, 'w') as f:
+                f.write(spotify_token.to_json())
+        
+        else:
+            Spotify.delete_oauth_file_and_restart()
+                      
+
 
     def read_token_file(path : str) -> SpotifyTokenInfo:
 
@@ -172,13 +255,11 @@ class Spotify:
             
 
 
-
-
-    def get_user_id(spotify_token) -> string:
+    def get_user_id(spotify_token : SpotifyTokenInfo) -> string:
 
         # Encabezado de autorización con el token de acceso
         headers = {
-            "Authorization": "Bearer "+ spotify_token  # Reemplaza 'tu_access_token' con tu token de acceso real
+            "Authorization": "Bearer "+ spotify_token.access_token  # Reemplaza 'tu_access_token' con tu token de acceso real
         }
 
         # Realizar la solicitud GET a la API de Spotify
@@ -186,14 +267,23 @@ class Spotify:
 
         response_json = response.json()
 
+        if(response.status_code != 200):
+            if(response_json['error']['status'] == 401):
+                print()
+
         return response_json['uri'].split(':')[2], response_json['country']
     
+    
+
+    
+        
 
 
-    def create_playlist( user_id, token , playlist_name, description = '', public = False, collaborative = False):
+
+    def create_playlist( user_id, token : SpotifyTokenInfo , playlist_name, description = '', public = False, collaborative = False):
 
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {token.access_token}",
             "Content-Type": "application/json"
         }
 
@@ -225,10 +315,10 @@ class Spotify:
     
 
 
-    def search_track(token, query : string, type : SearchType, market: string = None, limit = 10, offset = 0):
+    def search_track(token : SpotifyTokenInfo, query : string, type : SearchType, market: string = None, limit = 10, offset = 0):
 
         headers = {
-            "Authorization": "Bearer "+ token
+            "Authorization": "Bearer "+ token.access_token
         }
 
         params = '?q=' + query.replace(" ", "+") 
@@ -244,7 +334,8 @@ class Spotify:
         if(offset):
             params += '&offset=' + str(offset)
 
-        print('Search track: https://api.spotify.com/v1/search'+params)
+        print(f'Buscando "{query}" en Spotify...')
+        # print('Search track: https://api.spotify.com/v1/search'+params)
         response = requests.get('https://api.spotify.com/v1/search' + params, headers=headers)
 
         response_json = response.json()
@@ -260,9 +351,9 @@ class Spotify:
 
 
 
-    def add_track_to_playlist(token, playlist_id, track_uri,position = None):
+    def add_track_to_playlist(token : SpotifyTokenInfo, playlist_id, track_uri,position = None):
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {token.access_token}",
             "Content-Type": "application/json"
         }
 
@@ -293,9 +384,11 @@ class Spotify:
         return False
     
 
-    def add_tracks_to_playlist(token, playlist_id : str, track_uris: list[str],position = None):
+    def add_tracks_to_playlist(token : SpotifyTokenInfo, playlist_id : str, track_uris: list[str],position = None):
+
+        
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {token.access_token}",
             "Content-Type": "application/json"
         }
 
@@ -317,7 +410,7 @@ class Spotify:
 
 
 
-    def create_playlist_and_fill(token,playlist_name, tracks) -> str:
+    def create_playlist_and_fill(token : SpotifyTokenInfo,playlist_name, tracks) -> str:
 
         user_id, user_country = Spotify.get_user_id(token)
 
@@ -348,7 +441,77 @@ class Spotify:
         #             "spotify:track:6ZzMVEVTBhekYNKTGxCoUt",
         #             "spotify:track:1j8z4TTjJ1YOdoFEDwJTQa"]
 
-
+        print('\nAñadiendo canciones a la lista de Spotify\n')
         Spotify.add_tracks_to_playlist(token,playlist_id,track_uris)
 
         return playlist_id
+    
+
+
+
+
+
+    def get_current_user_playlists(token : SpotifyTokenInfo, limit = 50, offset = 0) -> list:
+
+        playlists_items = []
+
+        headers = {
+            "Authorization": "Bearer "+ token.access_token
+        }
+
+        params = '?limit=' + str(limit) + '&offset=' + str(offset)
+
+        response = requests.get('https://api.spotify.com/v1/me/playlists' + params, headers=headers)
+
+        response_json = response.json()
+
+        
+
+        if(response.status_code == 200):
+
+            playlists_items.extend(response_json['items'])
+
+            total_playlist_num = response_json['total']
+
+            if total_playlist_num > 50:
+
+
+                # TODO: Refactorizar el código para hacerlo recursivo o algo así
+                for num in range(1,(total_playlist_num // 50) + 1):
+                    headers = { "Authorization": "Bearer "+ token.access_token}
+
+                    params = '?limit=' + str(50) + '&offset=' + str(50*num)
+
+                    response = requests.get('https://api.spotify.com/v1/me/playlists' + params, headers=headers)
+
+                    response_json = response.json()
+
+                    if(response.status_code == 200):
+                        playlists_items.extend(response_json['items'])
+                    else:
+                        if response_json['error']['status'] == 401:
+                            Spotify.error_401()
+                        elif response_json['error']['status'] == 403:
+                            Spotify.delete_oauth_file_and_restart()
+                        else:
+                            Spotify.exceeded_rate_limits()
+
+        else:
+            if response_json['error']['status'] == 401:
+                Spotify.error_401()
+            elif response_json['error']['status'] == 403:
+                Spotify.delete_oauth_file_and_restart()
+            else:
+                Spotify.exceeded_rate_limits()
+
+
+        
+
+
+        
+
+    # def get_tracks_from_playlist(token : SpotifyTokenInfo, play):
+
+
+
+    
