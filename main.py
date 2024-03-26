@@ -1,4 +1,5 @@
 
+from logger_config import logging
 from youtube.youtube_functions import Youtube
 
 
@@ -85,7 +86,30 @@ def playlist_spotify_to_ytmusic():
     global ytmusic
     global spotify_token_info
 
-    Spotify.get_current_user_playlists(spotify_token_info)
+    ytmusic_playlist_name = ''
+    spotify_playlist_name = ''
+
+    retry = True
+    
+    while retry:
+        ytmusic_playlist_name = ''
+        spotify_playlist_name = ''
+    
+        while spotify_playlist_name == '':
+            spotify_playlist_name = input('\nIntroduce el nombre de la playlist a crear en Spotify: ')
+            
+        while ytmusic_playlist_name == '':
+            ytmusic_playlist_name = input('\nIntroduce el nombre de la playlist de Youtube Music: ')
+
+        print()
+        
+        tracks_to_add = Spotify.get_tracks_from_playlist_with_name(spotify_token_info, spotify_playlist_name)
+
+        if retry:
+            continue
+
+
+
 
     return
 

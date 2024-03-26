@@ -1,7 +1,7 @@
 
 
 import os
-from ytmusicapi import YTMusic
+from ytmusicapi_local.ytmusic import YTMusic
 
 from model.config import YOUTUBE_TOKEN_PATH
 

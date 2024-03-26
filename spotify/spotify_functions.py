@@ -1,3 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
+import requests
 import json
 import os
 import secrets
@@ -8,12 +11,16 @@ import sys
 import time
 from urllib.parse import urlencode, urljoin
 import webbrowser
-import requests
+from logger_config import logging
+
 # import model.config
 from local_web_server import StartWebServerUserAuth
 from model.config import *
 from model.SpotifyTokenInfo import SpotifyTokenInfo
+from spotify.model.Playlist import Playlist
 from spotify.spotify_generic import SearchType
+
+
 
 
 # class Spotify:
@@ -116,7 +123,9 @@ class Spotify:
     def exceeded_rate_limits():
         "Función a ejecutar cuando se recibe un error 429"
 
-        print('Se ha llegado al límite de solicitudes de la aplicación.')
+        input('Se ha llegado al límite de solicitudes de la aplicación.')
+        
+        sys.exit()
 
     
     def delete_oauth_file_and_restart():
@@ -255,7 +264,7 @@ class Spotify:
             
 
 
-    def get_user_id(spotify_token : SpotifyTokenInfo) -> string:
+    def get_user_info(spotify_token : SpotifyTokenInfo) -> string:
 
         # Encabezado de autorización con el token de acceso
         headers = {
@@ -412,7 +421,7 @@ class Spotify:
 
     def create_playlist_and_fill(token : SpotifyTokenInfo,playlist_name, tracks) -> str:
 
-        user_id, user_country = Spotify.get_user_id(token)
+        user_id, user_country = Spotify.get_user_info(token)
 
 
         res_bool, playlist_id , error_msg = Spotify.create_playlist(user_id,token, playlist_name)
@@ -503,14 +512,260 @@ class Spotify:
                 Spotify.delete_oauth_file_and_restart()
             else:
                 Spotify.exceeded_rate_limits()
+                
+                
+        return playlists_items
+                
+        
+    def search_playlist_by_name(token : SpotifyTokenInfo, playlist_name : str):
+        
+        playlists : list[Playlist] = Spotify.get_current_user_playlists(token)
+        
+        found = False
+        
+        for playlist in playlists:
+            if(playlist['name'] == playlist_name):
+                return False, playlist
+        
+        
+        print('No se ha encontrado la playlist con ese nombre.')
+        return True, None
+        
+        
+        
+        # root = Playlist.from_dict(playlist[0])
 
+
+
+    def fetch_tracks(token,user_country,playlist_href,offset):
+        headers = {
+            "Authorization": "Bearer " + token.access_token
+        }
+        params = {
+            'market': user_country,
+            'fields': 'total,items(track(name,id,artists(name)))',
+            'limit': 50,
+            'offset': offset
+        }
+        before = time.time()
+        response = requests.get(playlist_href + '/tracks', params=params, headers=headers)
+        response_json = response.json()
+        after = time.time()
+        logging.debug('Spotify.get_tracks_from_playlist_href -> ' + str(after - before) + 'ms')
+        if response.status_code == 200:
+            return response_json['items']
+        else:
+            if response_json['error']['status'] == 401:
+                Spotify.error_401()
+            elif response_json['error']['status'] == 403:
+                Spotify.delete_oauth_file_and_restart()
+            else:
+                Spotify.exceeded_rate_limits()
+            return []
+    
+    
+
+    def async_get_tracks_from_playlist_href(token : SpotifyTokenInfo, playlist_href : str):
+        playlists_tracks = []
+
+        user_id, user_country = Spotify.get_user_info(token)
+        
+        headers = {
+            "Authorization": "Bearer "+ token.access_token
+        }
+        
+        params = {
+            'market': user_country,
+            'fields': 'total,items(track(name,id,artists(name)))',
+            'limit': 50,
+            'offset': 0
+        }
+        
+        before = time.time()
+
+        response = requests.get(playlist_href + '/tracks', params = params, headers=headers)
+        
+        response_json = response.json()
+        
+        after = time.time()
+        
+        logging.debug('Spotify.get_tracks_from_playlist_href -> '+str(after-before)+'ms')
+        
+        if(response.status_code == 200):
+
+            playlists_tracks.extend(response_json['items'])
+
+            total_playlist_tracks = response_json['total']
+
+            if total_playlist_tracks > 50:
+
+                with ThreadPoolExecutor() as executor:
+                    offsets = [50 * num for num in range(1, (total_playlist_tracks // 50) + 1)]
+
+                    fetch_tracks_with_args = partial(Spotify.fetch_tracks,token,user_country,playlist_href)
+
+                    results = executor.map(fetch_tracks_with_args, offsets)
+
+                    for result in results:
+                        playlists_tracks.extend(result)
+
+        else:
+            if response_json['error']['status'] == 401:
+                Spotify.error_401()
+            elif response_json['error']['status'] == 403:
+                Spotify.delete_oauth_file_and_restart()
+            else:
+                Spotify.exceeded_rate_limits()
+    
+    
+    
+        formated = [item["track"] for item in playlists_tracks]  
+        
+        return formated
+
+
+    def get_tracks_from_playlist_href(token : SpotifyTokenInfo, playlist_href : str):
+    
+        playlists_tracks = []
+
+        user_id, user_country = Spotify.get_user_info(token)
+        
+        headers = {
+            "Authorization": "Bearer "+ token.access_token
+        }
+        
+        params = {
+            'market': user_country,
+            'fields': 'total,items(track(name,id,artists(name)))',
+            'limit': 50,
+            'offset': 0
+        }
+        
+        before = time.time()
+
+        response = requests.get(playlist_href + '/tracks', params = params, headers=headers)
+        
+        response_json = response.json()
+        
+        after = time.time()
+        
+        logging.debug('Spotify.get_tracks_from_playlist_href -> '+str(after-before)+'ms')
+        
+        if(response.status_code == 200):
+
+            playlists_tracks.extend(response_json['items'])
+
+            total_playlist_tracks = response_json['total']
+
+            if total_playlist_tracks > 50:
+
+                # TODO: Refactorizar el código para hacerlo recursivo o algo así
+                
+                for num in range(1,(total_playlist_tracks // 50) + 1):
+                    headers = {
+                        "Authorization": "Bearer "+ token.access_token
+                    }
+        
+                    params = {
+                        'market': user_country,
+                        'fields': 'total,items(track(name,id,artists(name)))',
+                        'limit': 50,
+                        'offset': 50 * num
+                    }
+            
+                    before = time.time()
+
+                    response = requests.get(playlist_href + '/tracks', params = params, headers=headers)
+                    
+                    response_json = response.json()
+                    
+                    after = time.time()
+                    
+                    logging.debug('Spotify.get_tracks_from_playlist_href -> '+str(after-before)+'ms')
+
+                    if(response.status_code == 200):
+                        playlists_tracks.extend(response_json['items'])
+                    else:
+                        if response_json['error']['status'] == 401:
+                            Spotify.error_401()
+                        elif response_json['error']['status'] == 403:
+                            Spotify.delete_oauth_file_and_restart()
+                        else:
+                            Spotify.exceeded_rate_limits()
+
+        else:
+            if response_json['error']['status'] == 401:
+                Spotify.error_401()
+            elif response_json['error']['status'] == 403:
+                Spotify.delete_oauth_file_and_restart()
+            else:
+                Spotify.exceeded_rate_limits()
+    
+    
+    
+        formated = [item["track"] for item in playlists_tracks]  
+        
+        return formated
+    
+    
+    
+    
+    def from_track_to_string(tracks : list) -> list[str]:
+        
+        result_string_array = []
+        
+        before = time.time()      
+            
+        for track in tracks:
+            try:
+                res = track['name'] + ' - '
+                
+                first = True
+                for artist in track['artists']:
+                    if not first:
+                        res += ', '
+                    else:
+                        first = False 
+                    
+                    res += artist['name']
+                    
+                result_string_array.append(res)
+            except Exception as err:
+                pass
+                
+        after = time.time()
+        
+        logging.debug('Spotify.from_track_to_string -> '+str(after-before)+'ms')
+        
+        return result_string_array
+    
+    
+
+    def get_tracks_from_playlist_with_name(token : SpotifyTokenInfo, playlist_name: str) -> list[str]:
+        
+        retry, playlist = Spotify.search_playlist_by_name(token,playlist_name)
+        
+        if retry:
+            return True
+        
+        # 'https://api.spotify.com/v1/playlists/1YDlr9UmPQF4jFs357t5eS/tracks'
+
+        before = time.time()
+        playlist_tracks = Spotify.async_get_tracks_from_playlist_href(token,playlist['href'])
+        after = time.time()
+        
+        logging.debug('Spotify.get_tracks_from_playlist_with_name -> '+str(after-before)+'ms')
 
         
-
-
+        playlist_tracks_string = Spotify.from_track_to_string(playlist_tracks)     
+                
+        return playlist_tracks_string
         
-
-    # def get_tracks_from_playlist(token : SpotifyTokenInfo, play):
+        print()
+        
+        
+        
+        
 
 
 
