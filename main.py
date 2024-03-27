@@ -1,5 +1,6 @@
 
-from logger_config import logging
+import cProfile
+from general_config import logging
 from youtube.youtube_functions import Youtube
 
 
@@ -31,7 +32,9 @@ def playlist_ytmusic_to_spotify():
 
 
     while retry:
-        
+        ytmusic_playlist_name = ''
+        spotify_playlist_name = ''
+    
         while ytmusic_playlist_name == '':
             ytmusic_playlist_name = input('\nIntroduce el nombre de la playlist de Youtube Music: ')
 
@@ -42,37 +45,15 @@ def playlist_ytmusic_to_spotify():
 
         tracks = []
         
-        print('Obteniendo canciones de la lista...\n')
         res_bool, tracks = Youtube.get_tracks_from_playlist(ytmusic,ytmusic_playlist_name)
 
         if res_bool == False:
             continue
 
-        if(len(tracks) > 100):
-            tracks_sublists = []
-
-            for i in range(0, len(tracks), 100):
-                tracks_sublist = tracks[i:i+100]
-                tracks_sublists.append(tracks_sublist)
-
-
-            playlist_id = Spotify.create_playlist_and_fill(spotify_token_info, spotify_playlist_name, tracks_sublists[0])
-            
-
-            user_id, user_country = Spotify.get_user_id(spotify_token_info)
-
-            for num in range(1, len(tracks_sublists)):
-                track_uris : list[str] = []
-
-                for track in tracks_sublists[num]:
-                    track_uri = Spotify.search_track(spotify_token_info, track, SearchType.track, user_country, 4)
-                    if(track_uri != None):
-                        track_uris.append(track_uri)
-
-                Spotify.add_tracks_to_playlist(spotify_token_info,playlist_id,track_uris,None)
-
-        else:
-            Spotify.create_playlist_and_fill(spotify_token_info, spotify_playlist_name, tracks)
+        global tracks_global
+        tracks_global = tracks
+        
+        Spotify.create_playlist_and_fill_with_names(spotify_token_info, spotify_playlist_name, tracks)
 
         
         retry = False
@@ -92,26 +73,50 @@ def playlist_spotify_to_ytmusic():
     retry = True
     
     while retry:
+        keep_order = False
+        keep_order_input = ''
         ytmusic_playlist_name = ''
         spotify_playlist_name = ''
+        
+        
+        # while spotify_playlist_name == '':
+        #     keep_order = input('\n¿Desea mantener el orden? El proceso tardará más (S/N): ')
+
+        #     if keep_order == 'S' or keep_order == 's':
+        #         keep_order = True
+        #     elif keep_order == 'N' or keep_order == 'n':
+        #         keep_order = False
+        #     else:
+        #         keep_order = ''
+                        
+                
     
         while spotify_playlist_name == '':
-            spotify_playlist_name = input('\nIntroduce el nombre de la playlist a crear en Spotify: ')
+            spotify_playlist_name = input('\nIntroduce el nombre de la playlist en Spotify: ')
             
         while ytmusic_playlist_name == '':
-            ytmusic_playlist_name = input('\nIntroduce el nombre de la playlist de Youtube Music: ')
+            ytmusic_playlist_name = input('\nIntroduce el nombre de la playlist a crear en Youtube Music: ')
 
         print()
         
-        tracks_to_add = Spotify.get_tracks_from_playlist_with_name(spotify_token_info, spotify_playlist_name)
+        retry, tracks_to_add = Spotify.get_tracks_from_playlist_with_name(spotify_token_info, spotify_playlist_name)
 
         if retry:
             continue
 
-
-
-
+        print('Canciones recuperadas: \n')
+        for track in tracks_to_add:
+            print(track)
+        print('Total: '+str(len(tracks_to_add)))
+        
+        print('\nBuscando canciones en Youtube\n')
+        res = Youtube.create_playlist_and_fill_with_names(ytmusic, ytmusic_playlist_name, tracks_to_add)
+        
+        pass
     return
+
+
+
 
 
 print('''   
@@ -130,7 +135,6 @@ print()
 
 # if read.strip() != "":
 #     sys.exit()
-
 spotify_token_info = Spotify.get_spotify_auth()
 
 Spotify.check_if_expired_token(spotify_token_info)
@@ -141,17 +145,23 @@ else:
     ytmusic = YTMusic(YOUTUBE_TOKEN_PATH)
 
 
+# Bucle principal
+exit = False
+while not exit:
 
-
-read = input('\nSelecciones una opción (escriba el número y pulse ENTER)\n\n\t1) Playlist de Youtube Music a Spotify\n\t2) Playlist de Spotify a Youtube Music\n\n-> ')
-
-
-if read.strip() == "1":
-    playlist_ytmusic_to_spotify()    
-elif read.strip() == "2":
-    playlist_spotify_to_ytmusic()
-else:
-    print()
+    read = input('\nSeleccione una opción (escriba el número y pulse ENTER)\n\n\t'+
+                 '1) Playlist de Youtube Music a Spotify\n\t'+
+                 '2) Playlist de Spotify a Youtube Music\n\t'+
+                 '3) Salir\n\n -> ')
+                 
+    if read.strip() == "1":
+        playlist_ytmusic_to_spotify()    
+    elif read.strip() == "2":
+        playlist_spotify_to_ytmusic()
+    elif read.strip() == "3":
+        sys.exit()
+    else:
+        print()
 
 
 sys.exit()

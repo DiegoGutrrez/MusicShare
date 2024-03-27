@@ -109,6 +109,8 @@ class YTMusicBase:
         else:
             if requests_session:  # Build a new session.
                 self._session = requests.Session()
+                adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+                self._session.mount('https://', adapter)
                 self._session.request = partial(self._session.request, timeout=30)  # type: ignore[method-assign]
             else:  # Use the Requests API module as a "session".
                 self._session = requests.api  # type: ignore[assignment]
