@@ -7,7 +7,7 @@ logger.setLevel(logging.DEBUG)
 
 # Configurar un RotatingFileHandler
 log_filename = 'musicshare.log'
-max_log_size = 1024 * 1024  # 1 MB
+max_log_size = 1024 * 100 # 100 KB
 backup_count = 1  # Número máximo de archivos de respaldo
 file_handler = RotatingFileHandler(log_filename, maxBytes=max_log_size, backupCount=backup_count)
 file_handler.setLevel(logging.DEBUG)

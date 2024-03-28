@@ -86,7 +86,7 @@ class Youtube:
         tracks_ids = []
         before = time.time()
         
-        with ThreadPoolExecutor(max_workers=20) as executor:
+        with ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
             for track in tracks_to_add:
                 future = executor.submit(Youtube.search_video_id, ytmusic, track)
@@ -99,39 +99,6 @@ class Youtube:
                 total_respuestas += 1
                 imprimir_progreso(total_respuestas, total_a_realizar)
                 
-                
-        
-        # with ThreadPoolExecutor(max_workers=20) as executor:
-            
-        #     print(f"\r{total_respuestas}/{total_a_realizar}", end="", flush=True)
-            
-        #     search_video_id_args = partial(Youtube.search_video_id,ytmusic)
-            
-        #     # mi_hilo = threading.Thread(target=Youtube.bucle, args=(executor,))
-        #     # mi_hilo.start()
-            
-        #     futures = [executor.submit(search_video_id_args, track) for track in tracks_to_add]
-
-        #     # Asignar una función de retorno de llamada (callback) para imprimir el progreso
-        #     for future in as_completed(futures):
-        #         future.add_done_callback(imprimir_progreso)
-
-        #     for future in as_completed(futures):
-        #         tracks_ids.append(future.result())
-        
-        
-            
-            # results = executor.map(search_video_id_args, tracks_to_add)
-
-            # tracks_ids = results
-            # for result in results:
-            #     tracks_ids.append(result)
-            # for track in tracks_to_add:
-            #     res = ytmusic.search(track,'songs',None,5,True)
-            #     try:
-            #         tracks_ids.append(res[0]['videoId'])
-            #     except Exception as err:
-            #         pass
                     
         after = time.time()
         

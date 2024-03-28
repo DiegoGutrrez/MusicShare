@@ -14,8 +14,6 @@ import time
 from urllib.parse import urlencode, urljoin
 import webbrowser
 from general_config import logging
-
-# import model.config
 from local_web_server import StartWebServerUserAuth
 from model.config import *
 from model.SpotifyTokenInfo import SpotifyTokenInfo
@@ -120,11 +118,6 @@ def get_spotify_token_info():
     hashed = sha256(code_verifier)
     codeChallenge = base64encode(hashed)
 
-
-    
-
-    # Genera la URL de autorización de Spotify
-
     params = {
         'response_type': 'code',
         'client_id': SPOTIFY_CLIENT_ID,
@@ -134,11 +127,6 @@ def get_spotify_token_info():
         'redirect_uri': REDIRECT_URI
     }
     auth_url_with_params = urljoin(spotify_url + auth_url, '?' + urlencode(params))
-
-    # Almacena el code_verifier en el almacenamiento local (si es necesario)
-    # Nota: en Python no hay un equivalente directo de window.localStorage, 
-    # así que aquí solo se está simulando el almacenamiento temporal
-    # os.environ['code_verifier'] = code_verifier
 
     # Redirige al usuario a la URL de autorización de Spotify
     print(f'\nVaya a\n "{auth_url_with_params}"\ny finalice el proceso de inicio de sesión y conceda acceso a su cuenta de Spotify\n')
@@ -367,45 +355,6 @@ class Spotify:
                 sys.exit()
             return None
 
-    
-
-
-    def search_track(token : SpotifyTokenInfo, query : string, type : SearchType, market: string = None, limit = 10, offset = 0):
-
-        headers = {
-            "Authorization": "Bearer "+ token.access_token
-        }
-
-        params = '?q=' + query.replace(" ", "+") 
-
-        params += '&type=' + type.value
-
-        if(market):
-            params += '&market=' + market
-
-        if(limit):
-            params += '&limit=' + str(limit)
-
-        if(offset):
-            params += '&offset=' + str(offset)
-
-        print(f'Buscando "{query}" en Spotify...')
-        # print('Search track: https://api.spotify.com/v1/search'+params)
-        response = requests.get('https://api.spotify.com/v1/search' + params, headers=headers)
-
-        response_json = response.json()
-
-        if(response.status_code == 200 or response.status_code == 201):
-            
-            track_id = response_json['tracks']['items'][0]['uri']
-
-            return track_id 
-        
-        else:
-            return None
-
-
-    
 
     
 
@@ -603,46 +552,6 @@ class Spotify:
 
 
 
-
-
-    def create_playlist_and_fill(token : SpotifyTokenInfo,playlist_name, tracks) -> str:
-
-        user_id, user_country = Spotify.get_user_info(token)
-
-
-        res_bool, playlist_id , error_msg = Spotify.create_playlist(user_id,token, playlist_name)
-
-        if(res_bool == False):
-            print(error_msg)
-            sys.exit()
-
-
-        track_uris : list[str] = []
-
-        for track in tracks:
-
-            track_uri = Spotify.search_track(token, track, SearchType.track, user_country, 4)
-            if(track_uri != None):
-                track_uris.append(track_uri)
-
-
-        # track_uris = [
-        #             "spotify:track:2DNyZP4Py6f4zMASLBnIu6",
-        #             "spotify:track:4waqcUQWdj0yH26STWl2Rq",
-        #             "spotify:track:1YtZ6sHC4TalQbK4c37bqJ",
-        #             "spotify:track:1I3O8YESvj6G6TqHaJTvEU",
-        #             "spotify:track:0Zbm5CKG9HHT9bwgvFc0qI",
-        #             "spotify:track:6GvgQAIyf4F3IirbbctB1x",
-        #             "spotify:track:6ZzMVEVTBhekYNKTGxCoUt",
-        #             "spotify:track:1j8z4TTjJ1YOdoFEDwJTQa"]
-
-        print('\nAñadiendo canciones a la lista de Spotify\n')
-        Spotify.add_tracks_to_playlist(token,playlist_id,track_uris)
-
-        return playlist_id
-    
-
-
     def fetch_playlists(token : SpotifyTokenInfo,offset):
         
         headers = { "Authorization": "Bearer "+ token.access_token}
@@ -781,8 +690,6 @@ class Spotify:
         
         
         
-        # root = Playlist.from_dict(playlist[0])
-
 
 
     def fetch_tracks(token,user_country,playlist_href,offset):
@@ -1006,8 +913,6 @@ class Spotify:
         if retry:
             return True, None
         
-        # 'https://api.spotify.com/v1/playlists/1YDlr9UmPQF4jFs357t5eS/tracks'
-
         before = time.time()
         retry, playlist_tracks = Spotify.async_get_tracks_from_playlist_href(token,playlist['href'])
         after = time.time()
