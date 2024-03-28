@@ -152,6 +152,6 @@ class Youtube:
         res = ytmusic.create_playlist(playlist_name,'','PRIVATE',tracks_ids,None)
         
         print('Playlist creada con éxito\n')
-        pass
+        
             
         return tracks_ids

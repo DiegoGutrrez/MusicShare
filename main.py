@@ -112,7 +112,7 @@ def playlist_spotify_to_ytmusic():
         print('\nBuscando canciones en Youtube\n')
         res = Youtube.create_playlist_and_fill_with_names(ytmusic, ytmusic_playlist_name, tracks_to_add)
         
-        pass
+        
     return
 
 

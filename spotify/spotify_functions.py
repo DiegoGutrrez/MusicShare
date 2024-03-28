@@ -23,7 +23,9 @@ from spotify.model.Playlist import Playlist
 from spotify.spotify_generic import SearchType
 from model.global_variables import *
 
+lock = threading.Lock()
 thread_local = threading.local()
+printing_waiting_message = False
 
 
 def get_session() -> requests.Session:
@@ -31,6 +33,33 @@ def get_session() -> requests.Session:
             thread_local.session = requests.Session()
         return thread_local.session
 
+
+def print_waiting_message():
+    global printing_waiting_message
+    global lock
+    
+    with lock:
+        if not printing_waiting_message:
+            printing_waiting_message = True
+        else:
+            return True
+    
+    print(f"\rLímite de la API de Spotify alcanzado, esperando 5 segundos...", end="", flush=True)
+    time.sleep(1)
+    print(f"\rLímite de la API de Spotify alcanzado, esperando 4 segundos...", end="", flush=True)
+    time.sleep(1)
+    print(f"\rLímite de la API de Spotify alcanzado, esperando 3 segundos...", end="", flush=True)
+    time.sleep(1)
+    print(f"\rLímite de la API de Spotify alcanzado, esperando 2 segundos...", end="", flush=True)
+    time.sleep(1)
+    print(f"\rLímite de la API de Spotify alcanzado, esperando 1 segundos...", end="", flush=True)
+    time.sleep(0.99)
+    x=' '
+    print(f"\r"+(150*x), end="", flush=True)
+    
+    printing_waiting_message = False
+    
+    return False
 
 
 # class Spotify:
@@ -133,7 +162,7 @@ class Spotify:
     def exceeded_rate_limits():
         "Función a ejecutar cuando se recibe un error 429"
 
-        input('Se ha llegado al límite de solicitudes de la aplicación.')
+        input('Se ha llegado al límite de solicitudes de Spotify, por favor, espere unos segundos y reinicie la aplicación.')
         
         sys.exit()
 
@@ -330,7 +359,8 @@ class Spotify:
             elif response_json['error']['status'] == 403:
                 Spotify.delete_oauth_file_and_restart()
             elif response_json['error']['status'] == 429:
-                Spotify.exceeded_rate_limits()
+                time.time(1)
+                return Spotify.create_playlist(user_id, token,  playlist_name,description,public,collaborative)
             else:
                 logging.error(response)
                 sys.exit()
@@ -410,13 +440,18 @@ class Spotify:
             
             else:
                 if(response.status_code == 429):
-                    time.sleep(5)
+                    res = print_waiting_message()
+                    if res:
+                        time.sleep(5)
                     return Spotify.search_track_id(token,track,market,limit,offset)
                 return None
 
     
     
     def search_tracks_with_name(token : SpotifyTokenInfo, tracks : list, user_country : str):
+        
+        
+        global printing_waiting_message
         
         total_requests = len(tracks)
         total_responses = 0
@@ -429,7 +464,7 @@ class Spotify:
         
         before = time.time()
         
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=5) as executor:
             futures = []
             for track in tracks:
                 future = executor.submit(Spotify.search_track_id,token, track, user_country)
@@ -441,7 +476,9 @@ class Spotify:
                     tracks_ids.append(result)
                 
                 total_responses += 1
-                print_progress(total_responses, total_requests)
+                
+                if not printing_waiting_message:
+                    print_progress(total_responses, total_requests)
         
         after = time.time()
         
@@ -549,7 +586,9 @@ class Spotify:
             elif response_json['error']['status'] == 403:
                 Spotify.delete_oauth_file_and_restart()
             elif response_json['error']['status'] == 429:
-                Spotify.exceeded_rate_limits()
+                time.time(1)
+                
+                return Spotify.add_track_to_playlist(token, playlist_id, track_uris, position)
             else:
                 logging.error(response)
             return False
@@ -605,7 +644,9 @@ class Spotify:
             'offset': offset
         }
 
-        response = requests.get('https://api.spotify.com/v1/me/playlists', params=params, headers=headers)
+        session = get_session()
+        
+        response = session.get('https://api.spotify.com/v1/me/playlists', params=params, headers=headers)
 
         response_json = response.json()
 
@@ -634,7 +675,9 @@ class Spotify:
 
         params = '?limit=' + str(limit) + '&offset=' + str(offset)
 
-        response = requests.get('https://api.spotify.com/v1/me/playlists' + params, headers=headers)
+        session = get_session()
+        
+        response = session.get('https://api.spotify.com/v1/me/playlists' + params, headers=headers)
 
         response_json = response.json()
 
@@ -648,15 +691,50 @@ class Spotify:
 
             if total_playlists > 50:
                 
-                with ThreadPoolExecutor(max_workers=5) as executor:
-                    offsets = [50 * num for num in range(1, (total_playlists // 50) + 1)]
+                for num in range(1, (total_playlists // 50) + 1):
+                    headers = {
+                        "Authorization": "Bearer "+ token.access_token
+                    }
 
-                    fetch_playlists_with_args = partial(Spotify.fetch_playlists,token)
+                    params = '?limit=' + str(limit) + '&offset=' + str(50*num)
 
-                    results = executor.map(fetch_playlists_with_args, offsets)
+                    session = get_session()
+        
+                    response = session.get('https://api.spotify.com/v1/me/playlists' + params, headers=headers)
 
-                    for result in results:
-                        playlists_items.extend(result)
+                    response_json = response.json()
+                    
+                    if(response.status_code == 200):
+                        playlists_items.extend(response_json['items'])
+                    else:
+                        if response_json['error']['status'] == 401:
+                            Spotify.error_401()
+                        elif response_json['error']['status'] == 403:
+                            Spotify.delete_oauth_file_and_restart()
+                        elif response_json['error']['status'] == 429:
+                            Spotify.exceeded_rate_limits()
+                        else:
+                            logging.error('https://api.spotify.com/v1/me/playlists ->' + response)
+                # with ThreadPoolExecutor(max_workers=5) as executor:
+                    
+                #     futures = []
+                #     for num in range(1, (total_playlists // 50) + 1):
+                #         future = executor.submit(Spotify.fetch_playlists,token,50*num)
+                #         futures.append((num, future))
+
+                #     for num, future in futures:
+                #         result = future.result()
+                #         if(result):
+                #             playlists_items.append(result)
+                          
+                    # offsets = [50 * num for num in range(1, (total_playlists // 50) + 1)]
+
+                    # fetch_playlists_with_args = partial(Spotify.fetch_playlists,token)
+
+                    # results = executor.map(fetch_playlists_with_args, offsets)
+
+                    # for result in results:
+                    #     playlists_items.extend(result)
 
         else:
             if response_json['error']['status'] == 401:
@@ -709,11 +787,17 @@ class Spotify:
             'limit': 50,
             'offset': offset
         }
+        
+
         before = time.time()
-        response = requests.get(playlist_href + '/tracks', params=params, headers=headers)
+        # if offset == 50:
+        #     time.sleep(1)
+            
+        session = get_session()    
+        response = session.get(playlist_href + '/tracks', params=params, headers=headers)
         response_json = response.json()
         after = time.time()
-        logging.debug('Spotify.get_tracks_from_playlist_href -> ' + str(after - before) + 'ms')
+        logging.debug('Spotify.get_tracks_from_playlist_href   Offset:'+ str(offset) +' -> ' + str(after - before) + 'ms')
         if response.status_code == 200:
             return response_json['items']
         else:
@@ -763,6 +847,7 @@ class Spotify:
 
             if total_playlist_tracks > 50:
 
+                
                 with ThreadPoolExecutor(max_workers=5) as executor:
                     offsets = [50 * num for num in range(1, (total_playlist_tracks // 50) + 1)]
 
@@ -772,6 +857,7 @@ class Spotify:
 
                     for result in results:
                         playlists_tracks.extend(result)
+                    
 
         else:
             if response_json['error']['status'] == 401:
