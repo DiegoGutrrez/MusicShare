@@ -1,5 +1,6 @@
 
 import cProfile
+import traceback
 from general_config import logging
 from youtube.youtube_functions import Youtube
 
@@ -117,52 +118,59 @@ def playlist_spotify_to_ytmusic():
 
 
 
+try:
+
+    print('''   
+                ___  ___          _      _____ _                                _____  __  
+                |  \/  |         (_)    /  ___| |                              |  _  |/  | 
+                | .  . |_   _ ___ _  ___\ `--.| |__   __ _ _ __ ___      __   _| |/' |`| | 
+                | |\/| | | | / __| |/ __|`--. \ '_ \ / _` | '__/ _ \     \ \ / /  /| | | | 
+                | |  | | |_| \__ \ | (__/\__/ / | | | (_| | | |  __/      \ V /\ |_/ /_| |_
+                \_|  |_/\__,_|___/_|\___\____/|_| |_|\__,_|_|  \___|       \_/  \___(_)___/
+            \n\n''')
 
 
-print('''   
-            ___  ___          _      _____ _                                _____  __  
-            |  \/  |         (_)    /  ___| |                              |  _  |/  | 
-            | .  . |_   _ ___ _  ___\ `--.| |__   __ _ _ __ ___      __   _| |/' |`| | 
-            | |\/| | | | / __| |/ __|`--. \ '_ \ / _` | '__/ _ \     \ \ / /  /| | | | 
-            | |  | | |_| \__ \ | (__/\__/ / | | | (_| | | |  __/      \ V /\ |_/ /_| |_
-            \_|  |_/\__,_|___/_|\___\____/|_| |_|\__,_|_|  \___|       \_/  \___(_)___/
-        \n\n''')
+    # read = input(' Se necesita acceso a sus cuentas de Spotify y Google, si quiere continuar pulse  ENTER  ')
 
+    print()
 
-# read = input(' Se necesita acceso a sus cuentas de Spotify y Google, si quiere continuar pulse  ENTER  ')
+    # if read.strip() != "":
+    #     sys.exit()
+    spotify_token_info = Spotify.get_spotify_auth()
 
-print()
+    Spotify.check_if_expired_token(spotify_token_info)
 
-# if read.strip() != "":
-#     sys.exit()
-spotify_token_info = Spotify.get_spotify_auth()
-
-Spotify.check_if_expired_token(spotify_token_info)
-
-if(Youtube.check_for_youtube_token_file() == -1):
-    obtain_ytmusic_access()
-else:
-    ytmusic = YTMusic(YOUTUBE_TOKEN_PATH)
-
-
-# Bucle principal
-exit = False
-while not exit:
-
-    read = input('\nSeleccione una opción (escriba el número y pulse ENTER)\n\n\t'+
-                 '1) Playlist de Youtube Music a Spotify\n\t'+
-                 '2) Playlist de Spotify a Youtube Music\n\t'+
-                 '3) Salir\n\n -> ')
-                 
-    if read.strip() == "1":
-        playlist_ytmusic_to_spotify()    
-    elif read.strip() == "2":
-        playlist_spotify_to_ytmusic()
-    elif read.strip() == "3":
-        sys.exit()
+    if(Youtube.check_for_youtube_token_file() == -1):
+        obtain_ytmusic_access()
+        ytmusic = YTMusic(YOUTUBE_TOKEN_PATH)
     else:
-        print()
+        ytmusic = YTMusic(YOUTUBE_TOKEN_PATH)
 
+
+    # Bucle principal
+    exit = False
+    while not exit:
+
+        read = input('\nSeleccione una opción (escriba el número y pulse ENTER)\n\n\t'+
+                    '1) Playlist de Youtube Music a Spotify\n\t'+
+                    '2) Playlist de Spotify a Youtube Music\n\t'+
+                    '3) Salir\n\n -> ')
+                    
+        if read.strip() == "1":
+            playlist_ytmusic_to_spotify()    
+        elif read.strip() == "2":
+            playlist_spotify_to_ytmusic()
+        elif read.strip() == "3":
+            sys.exit()
+        else:
+            print()
+
+except Exception as err:
+    print('\n\nSe ha producido un error irrecuperable. Reinicie el programa...\n\n')
+    logging.error(traceback.format_exc())
+    time.sleep(3)
+    
+    sys.exit()
 
 sys.exit()
 

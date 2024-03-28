@@ -11,7 +11,7 @@ class SearchMixin(MixinProtocol):
         query: str,
         filter: Optional[str] = None,
         scope: Optional[str] = None,
-        limit: int = 20,
+        limit: int = 5,
         ignore_spelling: bool = False,
     ) -> List[Dict]:
         """

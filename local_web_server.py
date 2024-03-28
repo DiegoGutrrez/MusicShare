@@ -1,8 +1,14 @@
+import contextlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import os
 from urllib.parse import urlparse, parse_qs
 import threading
 
-class RequestHandlerUserAuth(BaseHTTPRequestHandler):
+class SuppressedLogHTTPRequestHandler(BaseHTTPRequestHandler):
+    def log_request(self, code='-', size='-'):
+        pass
+
+class RequestHandlerUserAuth(SuppressedLogHTTPRequestHandler):
     def do_GET(self):
         global authorization_code, state
         # Obtener la ruta de la solicitud
@@ -11,26 +17,16 @@ class RequestHandlerUserAuth(BaseHTTPRequestHandler):
         # Obtener los parámetros de la consulta
         query_parameters = parse_qs(path.query)
 
-
         # Obtener los valores de los parámetros de la consulta
         authorization_code = query_parameters.get('code', [None])[0]
         state = query_parameters.get('state', [None])[0]
 
-        # Imprimir los valores de los parámetros de la consulta
-        # print("Authorization Code:", authorization_code)
-        # print("State:", state)
-
         # Responder con un mensaje de éxito
         self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
+        self.send_header('Content-type', 'text/html') 
         self.end_headers()
-        self.wfile.write(b'PUEDES CERRAR EL NAVEGADOR')
-
-
-
-
-    
-
+        message = "<h1>PUEDES CERRAR EL NAVEGADOR</h1>".encode("utf-8")
+        self.wfile.write(message)
 
 
 
@@ -41,10 +37,10 @@ def StartWebServerUserAuth(PORT):
     authorization_code = None
     state = None
     server = HTTPServer(('localhost', PORT), RequestHandlerUserAuth)
-    print('\nEsperando respuesta de Spotify...\n')
 
-
+    
     server.handle_request()
+    # server.handle_request()
 
     # def serve():
     #     server.handle_request()
@@ -59,7 +55,3 @@ def StartWebServerUserAuth(PORT):
 
     return authorization_code, state
 
-
-
-
-    server.handle_request()

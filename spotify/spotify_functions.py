@@ -141,6 +141,7 @@ def get_spotify_token_info():
     # os.environ['code_verifier'] = code_verifier
 
     # Redirige al usuario a la URL de autorización de Spotify
+    print(f'\nVaya a\n "{auth_url_with_params}"\ny finalice el proceso de inicio de sesión y conceda acceso a su cuenta de Spotify\n')
     webbrowser.open(auth_url_with_params)
 
     authorization_code, state = StartWebServerUserAuth(8888)
@@ -497,6 +498,9 @@ class Spotify:
         tracks_ids = Spotify.search_tracks_with_name(token,initial_tracks,user_country)
         
         print('Creando playlist\n')
+        
+        before = time.time()
+        
         playlist_id = Spotify.create_playlist(user_id, token, playlist_name)
         
         if(len(tracks_ids) > 100):
@@ -513,7 +517,11 @@ class Spotify:
             if Spotify.add_tracks_to_playlist(token,playlist_id,tracks_ids,None) == False:
                 input('Se ha producido un error al crear la playlist en Spotify')
                 sys.exit()
-                
+        
+        after = time.time()
+        
+        logging.debug('Spotify.create_playlist_and_fill_with_names -> '+str(after-before)+'ms')
+
         print('Playlist creada con éxito\n')
     
         

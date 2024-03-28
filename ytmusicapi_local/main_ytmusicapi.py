@@ -39,7 +39,7 @@ def setup_oauth(
     # else:
     oauth_credentials = OAuthCredentials(session=session, proxies=proxies)
 
-    return RefreshingToken.prompt_for_token(oauth_credentials, open_browser, './test.json')
+    return RefreshingToken.prompt_for_token(oauth_credentials, open_browser, './youtube_oauth.json')
 
 
 
